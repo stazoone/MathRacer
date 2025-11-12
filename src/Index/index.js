@@ -1,7 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import App from './App';
+// This import is now explicit and matches the file above.
+// We are importing the default export from 'MathRacer.jsx' and calling it 'App'
+import App from './MathRacer.jsx'; 
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
