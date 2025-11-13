@@ -1,0 +1,1 @@
+This is a project inspired by the popular online game TypeRacer, but with Math.
