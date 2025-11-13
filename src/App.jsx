@@ -198,9 +198,6 @@ export default function App() {
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-8 px-4">
         <header className="text-center space-y-2">
           <h1 className="text-4xl font-bold text-gray-900">MathRacer</h1>
-          <p className="text-gray-600">
-            Sharpen your skills with focused practice and a quick quiz.
-          </p>
         </header>
         <MathQuiz />
       </div>
