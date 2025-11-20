@@ -1,10 +1,12 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import 'katex/dist/katex.min.css';
 import useKatex from './hooks/useKatex';
 import { PROBLEMS } from './Problems/Problems';
+import 'mathlive';
+import './components/MathQuiz.css';
 
-
-// this takes the problem set and shuffles it so that the order is randomized
+// this function takes an array of problems and shuffles them
+// to ensure that the order is randomized each time the quiz is taken.
 const shuffleProblems = (problems) => {
   const shuffled = [...problems];
 
@@ -19,40 +21,23 @@ const shuffleProblems = (problems) => {
   return shuffled;
 };
 
+// this is the main component for the math quiz.
+// it handles the display of problems, user input, and feedback.
 function MathQuiz() {
   const { renderKatex, katexReady } = useKatex();
+  const mathfieldRef = useRef(null);
 
   const [problemOrder, setProblemOrder] = useState(() =>
     shuffleProblems(PROBLEMS),
   );
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [userAnswer, setUserAnswer] = useState('');
   const [status, setStatus] = useState('idle');
   const [isComplete, setIsComplete] = useState(false);
+  const [resetCounter, setResetCounter] = useState(0);
 
   const problemRef = useRef(null);
   const currentProblem = problemOrder[currentIndex];
   const totalProblems = problemOrder.length;
-
-  React.useEffect(() => {
-    if (!currentProblem) {
-      return;
-    }
-
-    renderKatex(problemRef.current, currentProblem.problem, {
-      displayMode: true,
-    });
-  }, [currentProblem, renderKatex]);
-
-  const handleAnswerChange = useCallback(
-    (event) => {
-      setUserAnswer(event.target.value);
-      if (status !== 'idle') {
-        setStatus('idle');
-      }
-    },
-    [status],
-  );
 
   const handleSubmit = useCallback(
     (event) => {
@@ -62,8 +47,10 @@ function MathQuiz() {
         return;
       }
 
-      const normalizedAnswer = userAnswer.trim();
-      const isCorrect = normalizedAnswer === currentProblem.answer;
+      const userAnswer = mathfieldRef.current.value;
+      const normalizedAnswer = userAnswer.replace(/\s+/g, '').replace(/[{}]/g, '').toLowerCase();
+      const normalizedCorrectAnswer = currentProblem.answer.replace(/\s+/g, '').replace(/[{}]/g, '').toLowerCase();
+      const isCorrect = normalizedAnswer === normalizedCorrectAnswer;
 
       if (!isCorrect) {
         setStatus('incorrect');
@@ -83,12 +70,43 @@ function MathQuiz() {
 
       setTimeout(() => {
         setCurrentIndex(nextIndex);
-        setUserAnswer('');
+        mathfieldRef.current.value = '';
         setStatus('idle');
       }, 500);
     },
-    [currentIndex, currentProblem, totalProblems, userAnswer],
+    [currentIndex, currentProblem, totalProblems],
   );
+
+  useEffect(() => {
+    const mathfield = mathfieldRef.current;
+    if (mathfield) {
+      mathfield.executeCommand('showVirtualKeyboard');
+      const reOpenKeyboard = () => mathfield.executeCommand('showVirtualKeyboard');
+      mathfield.addEventListener('focus', reOpenKeyboard);
+
+      const handleKeyDown = (ev) => {
+        if (ev.key === 'Enter') {
+          handleSubmit(ev);
+        }
+      };
+      mathfield.addEventListener('keydown', handleKeyDown);
+
+      return () => {
+        mathfield.removeEventListener('focus', reOpenKeyboard);
+        mathfield.removeEventListener('keydown', handleKeyDown);
+      }
+    }
+  }, [handleSubmit]);
+
+  useEffect(() => {
+    if (!currentProblem) {
+      return;
+    }
+
+    renderKatex(problemRef.current, currentProblem.problem, {
+      displayMode: true,
+    });
+  }, [currentProblem, renderKatex]);
 
   const feedbackMessage = useMemo(() => {
     if (status === 'correct') {
@@ -120,9 +138,9 @@ function MathQuiz() {
           onClick={() => {
             setProblemOrder(shuffleProblems(PROBLEMS));
             setCurrentIndex(0);
-            setUserAnswer('');
             setStatus('idle');
             setIsComplete(false);
+            setResetCounter(c => c + 1);
           }}
           className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
         >
@@ -133,7 +151,7 @@ function MathQuiz() {
   }
 
   return (
-    <section className="p-6 max-w-md mx-auto bg-white rounded-lg shadow-md space-y-6">
+    <section className="calculator-container p-6 max-w-2xl mx-auto bg-white rounded-lg shadow-md space-y-6">
       <header className="space-y-1">
         <h2 className="text-xl font-semibold text-gray-800">
           Problem {currentIndex + 1} of {totalProblems}
@@ -148,23 +166,13 @@ function MathQuiz() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label
-            htmlFor="user-answer"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Your answer
-          </label>
-          <input
-            id="user-answer"
-            type="text"
-            value={userAnswer}
-            onChange={handleAnswerChange}
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-base shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="Type your answer and press enter"
-            autoComplete="off"
-          />
-        </div>
+        <math-field
+          key={resetCounter}
+          ref={mathfieldRef}
+          style={{display: 'block', width: '100%'}}
+          use-virtual-keyboard
+          virtual-keyboard-mode="manual"
+        ></math-field>
 
         <button
           type="submit"
@@ -190,8 +198,8 @@ function MathQuiz() {
 }
 
 
-// MAIN
-
+// this is the main app component.
+// it sets up the main layout of the application and includes the MathQuiz component.
 export default function App() {
   return (
     <main className="min-h-screen bg-gray-100 py-12">
